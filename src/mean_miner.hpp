@@ -513,6 +513,7 @@ public:
     static const __m128i vxmask = {XMASK, XMASK};
     static const __m128i vyzmask = {YZMASK, YZMASK};
     const __m128i ff = _mm_set1_epi64x(0xffLL);
+    const __m128i vuorv = _mm_set1_epi64x(uorv);
     __m128i v0, v1, v2, v3, v4, v5, v6, v7;
     __m128i vpacket0, vpacket1, vhi0, vhi1;
     const __m128i k0 = _mm_set1_epi64x(sip_keys.k0);
@@ -524,6 +525,7 @@ public:
     static const __m256i vyzmask = {YZMASK, YZMASK, YZMASK, YZMASK};
     const __m256i vinit = _mm256_load_si256((__m256i *)&sip_keys);
     const __m256i ff = _mm256_set1_epi64x(0xffLL);
+    const __m256i vuorv  = {uorv, uorv, uorv, uorv};
     __m256i vpacket0, vpacket1, vhi0, vhi1;
     __m256i v0, v1, v2, v3, v4, v5, v6, v7;
 #endif
@@ -602,8 +604,7 @@ public:
         const u32 *readedge = edges0;
         int64_t uy34 = (int64_t)uy << YZZBITS;
 #if NSIPHASH == 4
-		const __m128i vuy34 = _mm_set1_epi64x(uy34);
-        const __m128i vuorv = _mm_set1_epi64x(uorv);
+        const __m128i vuy34 = _mm_set1_epi64x(uy34);
         for (; readedge <= edges-NSIPHASH; readedge += NSIPHASH, readz += NSIPHASH) {
                v0 = k0;
                v1 = k1;
@@ -623,7 +624,7 @@ public:
           SIPROUNDX2N; SIPROUNDX2N; SIPROUNDX2N; SIPROUNDX2N;
           v0 = XOR(XOR(v0,v1),XOR(v2,v3));
           v4 = XOR(XOR(v4,v5),XOR(v6,v7));
-    
+
           v1 = _mm_srli_epi64(v0, YZBITS) & vxmask;
           v5 = _mm_srli_epi64(v4, YZBITS) & vxmask;
           v0 = vhi0 | (v0 & vyzmask);
@@ -634,14 +635,13 @@ public:
   vx = extract32(v,x);\
   *(u64 *)(base+dst.index[vx]) = _mm_extract_epi64(w,i%2);\
   dst.index[vx] += BIGSIZE;
-		  STORE(0,v1,0,v0); STORE(1,v1,2,v0);
+          STORE(0,v1,0,v0); STORE(1,v1,2,v0);
           STORE(2,v5,0,v4); STORE(3,v5,2,v4);
         }
 #elif NSIPHASH == 8
         const __m256i vuy34  = {uy34, uy34, uy34, uy34};
-        const __m256i vuorv  = {uorv, uorv, uorv, uorv};
         for (; readedge <= edges-NSIPHASH; readedge += NSIPHASH, readz += NSIPHASH) {
-		
+
           v7 = v3 = _mm256_permute4x64_epi64(vinit, 0xFF);
                v0 = _mm256_permute4x64_epi64(vinit, 0x00);
                v1 = _mm256_permute4x64_epi64(vinit, 0x55);
@@ -1279,6 +1279,26 @@ public:
     __m256i vpacket0 = _mm256_set_epi64x(e2+6, e2+4, e2+2, e2+0);
     __m256i vpacket1 = _mm256_set_epi64x(e2+14, e2+12, e2+10, e2+8);
     static const __m256i vpacketinc = {16, 16, 16, 16};
+		 v0 = _mm256_permute4x64_epi64(vinit, 0x00);
+		 v1 = _mm256_permute4x64_epi64(vinit, 0x55);
+	v6 = v2 = _mm256_permute4x64_epi64(vinit, 0xAA);
+	v7 = v3 = _mm256_permute4x64_epi64(vinit, 0xFF);
+
+	v3 = XOR(v3,vpacket0); v7 = XOR(v7,vpacket1);
+	SIPROUNDX2N_FIRST; SIPROUNDX2N;
+	v0 = XOR(v0,vpacket0); v4 = XOR(v4,vpacket1);
+	v2 = XOR(v2,ff);
+	v6 = XOR(v6,ff);
+	SIPROUNDX2N; SIPROUNDX2N; SIPROUNDX2N; SIPROUNDX2N;
+	v0 = XOR(XOR(v0,v1),XOR(v2,v3));
+	v4 = XOR(XOR(v4,v5),XOR(v6,v7));
+
+	vpacket0 = _mm256_add_epi64(vpacket0, vpacketinc);
+	vpacket1 = _mm256_add_epi64(vpacket1, vpacketinc);
+	v0 = v0 & vnodemask;
+	v4 = v4 & vnodemask;
+	v1 = _mm256_srli_epi64(v0, ZBITS);
+	v5 = _mm256_srli_epi64(v4, ZBITS);
   #endif
     for (u32 my = starty; my < endy; my++, endedge += NYZ) {
       for (; edge < endedge; edge += NSIPHASH) {
@@ -1310,27 +1330,6 @@ public:
         MATCH(0,v1,0,v0); MATCH(1,v1,2,v0);
         MATCH(2,v5,0,v4); MATCH(3,v5,2,v4);
   #elif NSIPHASH == 8
-             v0 = _mm256_permute4x64_epi64(vinit, 0x00);
-             v1 = _mm256_permute4x64_epi64(vinit, 0x55);
-        v6 = v2 = _mm256_permute4x64_epi64(vinit, 0xAA);
-        v7 = v3 = _mm256_permute4x64_epi64(vinit, 0xFF);
-
-        v3 = XOR(v3,vpacket0); v7 = XOR(v7,vpacket1);
-        SIPROUNDX2N_FIRST; SIPROUNDX2N;
-        v0 = XOR(v0,vpacket0); v4 = XOR(v4,vpacket1);
-        v2 = XOR(v2,ff);
-        v6 = XOR(v6,ff);
-        SIPROUNDX2N; SIPROUNDX2N; SIPROUNDX2N; SIPROUNDX2N;
-        v0 = XOR(XOR(v0,v1),XOR(v2,v3));
-        v4 = XOR(XOR(v4,v5),XOR(v6,v7));
-  
-        vpacket0 = _mm256_add_epi64(vpacket0, vpacketinc);
-        vpacket1 = _mm256_add_epi64(vpacket1, vpacketinc);
-        v0 = v0 & vnodemask;
-        v4 = v4 & vnodemask;
-        v1 = _mm256_srli_epi64(v0, ZBITS);
-        v5 = _mm256_srli_epi64(v4, ZBITS);
-  
         u32 uxy;
   #define MATCH(i,v,x,w) \
   uxy = _mm256_extract_epi32(v,x);\
