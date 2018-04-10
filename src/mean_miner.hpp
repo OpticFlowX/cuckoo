@@ -336,10 +336,8 @@ public:
     static const __m128i vxmask = {XMASK, XMASK};
     static const __m128i vyzmask = {YZMASK, YZMASK};
     const __m128i ff = _mm_set1_epi64x(0xffLL);
-    const __m128i k0 = _mm_set1_epi64x(sip_keys.k0);
-    const __m128i k1 = _mm_set1_epi64x(sip_keys.k1);
-    const __m128i k2 = _mm_set1_epi64x(sip_keys.k2);
-    const __m128i k3 = _mm_set1_epi64x(sip_keys.k3);
+    const __m128i vinit0 = _mm_set_epi64x(sip_keys.k1, sip_keys.k0);
+    const __m128i vinit1 = _mm_set_epi64x(sip_keys.k3, sip_keys.k2);
     __m128i v0, v1, v2, v3, v4, v5, v6, v7;
     const u32 e2 = 2 * edge + uorv;
     __m128i vpacket0 = _mm_set_epi64x(e2+2, e2+0);
@@ -394,10 +392,10 @@ public:
         }
 #endif
 #elif NSIPHASH == 4
-             v0 = k0;
-             v1 = k1;
-        v6 = v2 = k2;
-        v7 = v3 = k3;
+             v0 = _mm_unpacklo_epi64(vinit0, vinit0);
+             v1 = _mm_unpackhi_epi64(vinit0, vinit0);
+        v6 = v2 = _mm_unpacklo_epi64(vinit1, vinit1);
+        v7 = v3 = _mm_unpackhi_epi64(vinit1, vinit1);
 
         v3 = XOR(v3,vpacket0); v7 = XOR(v7,vpacket1);
         SIPROUNDX2N_FIRST; SIPROUNDX2N;
@@ -516,10 +514,8 @@ public:
     const __m128i vuorv = _mm_set1_epi64x(uorv);
     __m128i v0, v1, v2, v3, v4, v5, v6, v7;
     __m128i vpacket0, vpacket1, vhi0, vhi1;
-    const __m128i k0 = _mm_set1_epi64x(sip_keys.k0);
-    const __m128i k1 = _mm_set1_epi64x(sip_keys.k1);
-    const __m128i k2 = _mm_set1_epi64x(sip_keys.k2);
-    const __m128i k3 = _mm_set1_epi64x(sip_keys.k3);
+    const __m128i vinit0 = _mm_set_epi64x(sip_keys.k1, sip_keys.k0);
+    const __m128i vinit1 = _mm_set_epi64x(sip_keys.k3, sip_keys.k2);
 #elif NSIPHASH == 8
     static const __m256i vxmask = {XMASK, XMASK, XMASK, XMASK};
     static const __m256i vyzmask = {YZMASK, YZMASK, YZMASK, YZMASK};
@@ -606,10 +602,10 @@ public:
 #if NSIPHASH == 4
         const __m128i vuy34 = _mm_set1_epi64x(uy34);
         for (; readedge <= edges-NSIPHASH; readedge += NSIPHASH, readz += NSIPHASH) {
-               v0 = k0;
-               v1 = k1;
-          v6 = v2 = k2;
-          v7 = v3 = k3;
+               v0 = _mm_unpacklo_epi64(vinit0, vinit0);
+               v1 = _mm_unpackhi_epi64(vinit0, vinit0);
+          v6 = v2 = _mm_unpacklo_epi64(vinit1, vinit1);
+          v7 = v3 = _mm_unpackhi_epi64(vinit1, vinit1);
 
           vpacket0 = _mm_slli_epi64(_mm_cvtepu32_epi64(*(__m128i*) readedge     ), 1) | vuorv;
           vhi0     = vuy34 | _mm_slli_epi64(_mm_cvtepu16_epi64(_mm_set_epi64x(0,*(u64*)readz)), YZBITS);
